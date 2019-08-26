@@ -1,25 +1,21 @@
 #!/bin/bash
 
-current_path=`pwd`
-current_time=`date +"%Y-%m-%d_%T"`
-compressed_dashboards_name="dashboards.tar.gz"
-compressed_datasources_name="datasources.tar.gz"
+set -e
 
-echo $current_time
+trap 'echo -ne "\n:::\n:::\tCaught signal, exiting at line $LINENO, while running :${BASH_COMMAND}:\n:::\n"; exit' SIGINT SIGQUIT
 
-dashboard_backup_folder="/tmp/dashboards/$current_time"
-datasource_backup_folder="/tmp/datasources/$current_time"
+current_path=$(pwd)
+backup_dir="_OUTPUT_"
+timestamp=$(date +"%Y-%m-%dT%H-%M-%S")
 
-if [ ! -d "$dashboard_backup_folder" ]; then 
-  mkdir -p "$dashboard_backup_folder" 
-fi
+[ -d "${backup_dir}" ] || mkdir -p "${backup_dir}"
 
-if [ ! -d "$datasource_backup_folder" ]; then 
-  mkdir -p "$datasource_backup_folder" 
-fi
+for i in dashboards datasources folders alert_channels
+do
+	F="${backup_dir}/${i}/${timestamp}"
+	[ -d "${F}" ] || mkdir -p "${F}"
+	python "${current_path}/src/save_${i}.py" "${F}"
+done
 
-python "${current_path}/saveDashboards.py" $dashboard_backup_folder
-python "${current_path}/saveDatasources.py" $datasource_backup_folder
-
-tar -zcvf "/tmp/$compressed_dashboards_name" $dashboard_backup_folder
-tar -zcvf "/tmp/$compressed_datasources_name" $datasource_backup_folder
+tar -czvf "${backup_dir}/${timestamp}.tar.gz" ${backup_dir}/{dashboards,datasources,folders,alert_channels}/${timestamp}
+rm -rf ${backup_dir}/{dashboards,datasources,folders,alert_channels}/${timestamp}
